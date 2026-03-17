@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>スイカゲーム 顔つき</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<style>
+body{
+margin:0;
+background:#1c1c1c;
+text-align:center;
+font-family:sans-serif;
+color:white;
+}
+canvas{
+background:#f6e7b4;
+border:5px solid #333;
+border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🍉 スイカゲーム（顔つき）</h2>
+<canvas id="game" width="400" height="600"></canvas>
+<div id="score">Score: 0</div>
+
+<script>
+
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
+
+let fruits=[]
+let nextX=200
+let score=0
+
+const types=[
+{r:10,c:"#ff4d4d"},
+{r:15,c:"#ff9933"},
+{r:20,c:"#ffee66"},
+{r:25,c:"#66cc66"},
+{r:30,c:"#66ccff"},
+{r:35,c:"#9966ff"},
+{r:40,c:"#ff66cc"},
+{r:55,c:"#00aa00"}
+]
+
+class Fruit{
+constructor(x,y,type){
+this.x=x
+this.y=y
+this.vx=0
+this.vy=0
+this.type=type
+this.r=types[type].r
+this.color=types[type].c
+}
+}
+
+canvas.addEventListener("mousemove",e=>{
+const rect=canvas.getBoundingClientRect()
+nextX=e.clientX-rect.left
+})
+
+canvas.addEventListener("click",()=>{
+fruits.push(new Fruit(nextX,40,Math.floor(Math.random()*3)))
+})
+
+function drawFace(f){
+
+let r=f.r
+
+// 目
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.arc(f.x-r/3,f.y-r/4,r/8,0,Math.PI*2)
+ctx.arc(f.x+r/3,f.y-r/4,r/8,0,Math.PI*2)
+ctx.fill()
+
+// 口（種類で変化）
+ctx.strokeStyle="black"
+ctx.lineWidth=2
+ctx.beginPath()
+
+if(f.type<3){
+// 笑顔
+ctx.arc(f.x,f.y,r/3,0,Math.PI)
+}else if(f.type<6){
+// 真顔
+ctx.moveTo(f.x-r/3,f.y+r/4)
+ctx.lineTo(f.x+r/3,f.y+r/4)
+}else{
+// ニヤリ
+ctx.arc(f.x,f.y+r/6,r/3,Math.PI,0)
+}
+
+ctx.stroke()
+
+}
+
+function update(){
+
+fruits.forEach(f=>{
+
+f.vy+=0.4
+f.vx*=0.99
+f.vy*=0.99
+
+f.x+=f.vx
+f.y+=f.vy
+
+if(f.x<f.r){f.x=f.r;f.vx*=-0.5}
+if(f.x>400-f.r){f.x=400-f.r;f.vx*=-0.5}
+
+if(f.y>600-f.r){
+f.y=600-f.r
+f.vy*=-0.2
+}
+
+})
+
+for(let i=0;i<fruits.length;i++){
+for(let j=i+1;j<fruits.length;j++){
+
+let a=fruits[i]
+let b=fruits[j]
+
+let dx=a.x-b.x
+let dy=a.y-b.y
+let dist=Math.sqrt(dx*dx+dy*dy)
+
+if(dist<a.r+b.r){
+
+let angle=Math.atan2(dy,dx)
+let overlap=a.r+b.r-dist
+
+a.x+=Math.cos(angle)*overlap/2
+a.y+=Math.sin(angle)*overlap/2
+b.x-=Math.cos(angle)*overlap/2
+b.y-=Math.sin(angle)*overlap/2
+
+if(a.type===b.type && a.type<types.length-1){
+
+let nt=a.type+1
+fruits.push(new Fruit((a.x+b.x)/2,(a.y+b.y)/2,nt))
+
+score += (nt+1)*20
+
+fruits.splice(j,1)
+fruits.splice(i,1)
+return
+
+}
+
+}
+}
+}
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,400,600)
+
+// ライン
+ctx.strokeStyle="red"
+ctx.beginPath()
+ctx.moveTo(0,90)
+ctx.lineTo(400,90)
+ctx.stroke()
+
+fruits.forEach(f=>{
+
+// 本体
+ctx.fillStyle=f.color
+ctx.beginPath()
+ctx.arc(f.x,f.y,f.r,0,Math.PI*2)
+ctx.fill()
+
+// 顔
+drawFace(f)
+
+})
+
+document.getElementById("score").textContent="Score: "+score
+
+}
+
+function loop(){
+
+update()
+draw()
+
+for(let f of fruits){
+if(f.y<90 && f.vy>0){
+alert("ゲームオーバー！")
+location.reload()
+}
+}
+
+requestAnimationFrame(loop)
+
+}
+
+loop()
+
+</script>
+
+</body>
+</html>
