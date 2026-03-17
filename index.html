@@ -2,30 +2,28 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>スイカゲーム 顔つき</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-
+<title>スイカゲーム（安定版）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{
 margin:0;
-background:#1c1c1c;
+background:#222;
 text-align:center;
-font-family:sans-serif;
 color:white;
+font-family:sans-serif;
 }
 canvas{
-background:#f6e7b4;
-border:5px solid #333;
-border-radius:10px;
+background:#f5e6b3;
+border:4px solid #333;
 }
 </style>
 </head>
-
 <body>
 
-<h2>🍉 スイカゲーム（顔つき）</h2>
+<h2>🍉 スイカゲーム（安定版）</h2>
+<p>クリックで落とす</p>
+
 <canvas id="game" width="400" height="600"></canvas>
-<div id="score">Score: 0</div>
 
 <script>
 
@@ -35,17 +33,23 @@ const ctx=canvas.getContext("2d")
 let fruits=[]
 let nextX=200
 let score=0
+let nextType=randType()
+let dropCooldown=0
 
 const types=[
-{r:10,c:"#ff4d4d"},
-{r:15,c:"#ff9933"},
+{r:12,c:"#ff4d4d"},
+{r:16,c:"#ff9933"},
 {r:20,c:"#ffee66"},
 {r:25,c:"#66cc66"},
 {r:30,c:"#66ccff"},
 {r:35,c:"#9966ff"},
-{r:40,c:"#ff66cc"},
+{r:42,c:"#ff66cc"},
 {r:55,c:"#00aa00"}
 ]
+
+function randType(){
+return Math.floor(Math.random()*3)
+}
 
 class Fruit{
 constructor(x,y,type){
@@ -56,6 +60,7 @@ this.vy=0
 this.type=type
 this.r=types[type].r
 this.color=types[type].c
+this.safeTime=30 // これが重要（即死防止）
 }
 }
 
@@ -65,62 +70,45 @@ nextX=e.clientX-rect.left
 })
 
 canvas.addEventListener("click",()=>{
-fruits.push(new Fruit(nextX,40,Math.floor(Math.random()*3)))
+if(dropCooldown>0)return
+
+let r=types[nextType].r
+let x=Math.max(r,Math.min(400-r,nextX))
+
+fruits.push(new Fruit(x,50,nextType))
+
+nextType=randType()
+dropCooldown=20
 })
-
-function drawFace(f){
-
-let r=f.r
-
-// 目
-ctx.fillStyle="black"
-ctx.beginPath()
-ctx.arc(f.x-r/3,f.y-r/4,r/8,0,Math.PI*2)
-ctx.arc(f.x+r/3,f.y-r/4,r/8,0,Math.PI*2)
-ctx.fill()
-
-// 口（種類で変化）
-ctx.strokeStyle="black"
-ctx.lineWidth=2
-ctx.beginPath()
-
-if(f.type<3){
-// 笑顔
-ctx.arc(f.x,f.y,r/3,0,Math.PI)
-}else if(f.type<6){
-// 真顔
-ctx.moveTo(f.x-r/3,f.y+r/4)
-ctx.lineTo(f.x+r/3,f.y+r/4)
-}else{
-// ニヤリ
-ctx.arc(f.x,f.y+r/6,r/3,Math.PI,0)
-}
-
-ctx.stroke()
-
-}
 
 function update(){
 
+dropCooldown--
+
 fruits.forEach(f=>{
 
+f.safeTime--
+
 f.vy+=0.4
-f.vx*=0.99
-f.vy*=0.99
+f.vx*=0.98
+f.vy*=0.98
 
 f.x+=f.vx
 f.y+=f.vy
 
-if(f.x<f.r){f.x=f.r;f.vx*=-0.5}
-if(f.x>400-f.r){f.x=400-f.r;f.vx*=-0.5}
+// 壁
+if(f.x<f.r){f.x=f.r;f.vx=0}
+if(f.x>400-f.r){f.x=400-f.r;f.vx=0}
 
+// 床
 if(f.y>600-f.r){
 f.y=600-f.r
-f.vy*=-0.2
+f.vy=0
 }
 
 })
 
+// 衝突
 for(let i=0;i<fruits.length;i++){
 for(let j=i+1;j<fruits.length;j++){
 
@@ -133,20 +121,22 @@ let dist=Math.sqrt(dx*dx+dy*dy)
 
 if(dist<a.r+b.r){
 
-let angle=Math.atan2(dy,dx)
 let overlap=a.r+b.r-dist
+let nx=dx/dist
+let ny=dy/dist
 
-a.x+=Math.cos(angle)*overlap/2
-a.y+=Math.sin(angle)*overlap/2
-b.x-=Math.cos(angle)*overlap/2
-b.y-=Math.sin(angle)*overlap/2
+a.x+=nx*overlap/2
+a.y+=ny*overlap/2
+b.x-=nx*overlap/2
+b.y-=ny*overlap/2
 
+// 合体
 if(a.type===b.type && a.type<types.length-1){
 
 let nt=a.type+1
 fruits.push(new Fruit((a.x+b.x)/2,(a.y+b.y)/2,nt))
 
-score += (nt+1)*20
+score+=(nt+1)*10
 
 fruits.splice(j,1)
 fruits.splice(i,1)
@@ -167,24 +157,36 @@ ctx.clearRect(0,0,400,600)
 // ライン
 ctx.strokeStyle="red"
 ctx.beginPath()
-ctx.moveTo(0,90)
-ctx.lineTo(400,90)
+ctx.moveTo(0,100)
+ctx.lineTo(400,100)
 ctx.stroke()
 
-fruits.forEach(f=>{
+// ガイド
+ctx.fillStyle="rgba(0,0,0,0.2)"
+let r=types[nextType].r
+ctx.beginPath()
+ctx.arc(nextX,50,r,0,Math.PI*2)
+ctx.fill()
 
-// 本体
+// ネクスト
+ctx.fillStyle="black"
+ctx.fillText("NEXT",300,30)
+ctx.beginPath()
+ctx.fillStyle=types[nextType].c
+ctx.arc(350,50,r,0,Math.PI*2)
+ctx.fill()
+
+// フルーツ
+fruits.forEach(f=>{
 ctx.fillStyle=f.color
 ctx.beginPath()
 ctx.arc(f.x,f.y,f.r,0,Math.PI*2)
 ctx.fill()
-
-// 顔
-drawFace(f)
-
 })
 
-document.getElementById("score").textContent="Score: "+score
+// スコア
+ctx.fillStyle="black"
+ctx.fillText("Score: "+score,10,30)
 
 }
 
@@ -193,9 +195,10 @@ function loop(){
 update()
 draw()
 
+// ゲームオーバー
 for(let f of fruits){
-if(f.y<90 && f.vy>0){
-alert("ゲームオーバー！")
+if(f.safeTime<=0 && f.y<100){
+alert("ゲームオーバー\nScore: "+score)
 location.reload()
 }
 }
